@@ -96,7 +96,20 @@ def extract_fullcontext(text):
     return labels
 
 
-def synthesize(labels, speed=1.0, half_tone=0.0):
+#def synthesize(labels, speed=1.0, half_tone=0.0):
+def synthesize(labels, 
+               speed=1.0, 
+               half_tone=0.0,
+               sampling_frequency=-1,
+               frame_period=-1,
+               all_pass=-1,
+               postfiltering=0.0,
+               threshold=0.5,
+               weight=1.0,
+               weight_f0=1.0,
+               volume=0.0,
+               buffer_size=0.0
+):
     """Run OpenJTalk's speech synthesis backend
 
     Args:
@@ -108,8 +121,6 @@ def synthesize(labels, speed=1.0, half_tone=0.0):
         np.ndarray: speech waveform (dtype: np.float64)
         int: sampling frequency (defualt: 48000)
     """
-    if isinstance(labels, tuple) and len(labels) == 2:
-        labels = labels[1]
 
     global _global_htsengine
     if _global_htsengine is None:
@@ -117,10 +128,42 @@ def synthesize(labels, speed=1.0, half_tone=0.0):
     sr = _global_htsengine.get_sampling_frequency()
     _global_htsengine.set_speed(speed)
     _global_htsengine.add_half_tone(half_tone)
-    return _global_htsengine.synthesize(labels), sr
 
+    # 追記 start
+    if 1 <= sampling_frequency: _global_htsengine.set_sampling_frequency(sampling_frequency)
+    if 1 <= frame_period: _global_htsengine.set_fperiod(frame_period)
+    if 0.0 <= all_pass <= 1.0: _global_htsengine.set_alpha(all_pass) 
+    if 0.0 <= postfiltering <= 1.0: _global_htsengine.set_beta(postfiltering) 
+    if 0.0 <= threshold <= 1.0: _global_htsengine.set_msd_threshold(0, threshold) # stream_index
+    if 0.0 <= weight: _global_htsengine.set_gv_weight(0, weight) # stream_index
+    if 0.0 <= weight_f0: _global_htsengine.set_gv_weight(1, weight) 
+    if 0.0 <= volume: _global_htsengine.set_volume(volume)
+    if 0.0 <= buffer_size: _global_htsengine.set_audio_buff_size(buffer_size)
 
-def tts(text, speed=1.0, half_tone=0.0):
+    x = _global_htsengine.synthesize(labels)
+#    x = _global_htsengine.synthesize_from_strings(labels)
+#    return _global_htsengine.synthesize(labels), sr
+    return x, sr
+    # 追記 end
+
+#def tts(text, speed=1.0, half_tone=0.0):
+def tts(text, speed=1.0, 
+        half_tone=0.0, 
+        sampling_frequency=-1,
+        frame_period=-1,
+        all_pass=-1,
+        postfiltering=0.0,
+        threshold=0.5,
+        weight=1.0,
+        weight_f0=1.0,
+        volume=0.0,
+        buffer_size=0.0,
+        file_name=None,
+        info_file_name=None,
+        label_file_name=None,
+        param_file_name=None,
+        riff_file_name=None
+):
     """Text-to-speech
 
     Args:
@@ -132,8 +175,30 @@ def tts(text, speed=1.0, half_tone=0.0):
         np.ndarray: speech waveform (dtype: np.float64)
         int: sampling frequency (defualt: 48000)
     """
-    return synthesize(extract_fullcontext(text), speed, half_tone)
+    # 追記:ファイル保存するため
+    if file_name or info_file_name or label_file_name or param_file_name or riff_file_name:
+        njd_results, labels = pyopenjtalk.run_frontend(text)
+        global _global_htsengine
+        if _global_htsengine is None:
+            _global_htsengine = HTSEngine(DEFAULT_HTS_VOICE)
+        _global_htsengine.synthesize_from_strings(labels)
+        if file_name is not None: _global_htsengine.save_generated_speech(file_name.encode('utf-8'))
+        if info_file_name is not None: _global_htsengine.save_information(info_file_name.encode('utf-8'))
+        if label_file_name is not None: _global_htsengine.save_label(label_file_name.encode('utf-8'))
+        if param_file_name is not None: _global_htsengine.save_generated_parameter(0, param_file_name.encode('utf-8')) # stream_index
+        if riff_file_name is not None: _global_htsengine.save_riff(riff_file_name.encode('utf-8'))
 
+#    return synthesize(extract_fullcontext(text), speed, half_tone)
+    return synthesize(extract_fullcontext(text), speed, half_tone, 
+            sampling_frequency=sampling_frequency, 
+            frame_period=frame_period, 
+            all_pass=all_pass,
+            postfiltering=postfiltering,
+            threshold=threshold, 
+            weight=weight, 
+            weight_f0=weight_f0, 
+            volume=volume, 
+            buffer_size=buffer_size)
 
 def run_frontend(text, verbose=0):
     """Run OpenJTalk's text processing frontend
