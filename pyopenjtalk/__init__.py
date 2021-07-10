@@ -185,7 +185,8 @@ def tts(text, speed=1.0,
     __set_hts_parameters(speed, half_tone, sampling_frequency, frame_period, all_pass, postfiltering, threshold, weight, weight_f0, volume, buffer_size)
 
     labels = extract_fullcontext(text)
-    x = _global_htsengine.get_generated_speech()
+    x = _global_htsengine.synthesize(labels)
+#    x = _global_htsengine.get_generated_speech()
 
     if raw_file_name or info_file_name or label_file_name or param_file_name or wav_file_name:
         _global_htsengine.synthesize_from_strings(labels)
